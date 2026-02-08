@@ -1,5 +1,8 @@
 import streamlit as st
 import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
+import pydeck as pdk
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 from utils import get_prediction, get_stations, get_forecast_for_station, get_date_range
@@ -79,6 +82,53 @@ selected_date = st.sidebar.date_input(
     help="Select a date between today and 7 days from now"
 )
 
+# Map schtaff
+
+import pandas as pd
+import folium
+from datetime import date
+
+# Load your CSVs
+all_stations = pd.read_csv("datasets/raw/London stations.csv")
+calculated_stations = pd.read_csv("notebooks/data/processed/forecast.csv")
+
+all_stations.rename(columns={"Station": "station"}, inplace=True)
+calculated_stations.rename(columns={"risk_label": "category"}, inplace=True)
+
+# Ensure date column is datetime
+calculated_stations["date"] = pd.to_datetime(calculated_stations["date"])
+
+# Merge
+df = all_stations.merge(calculated_stations, on="station", how="left")
+
+# Filter to today's rows
+today = pd.to_datetime(date.today())
+df_today = df[df["date"] == today]
+
+cat_colors = {
+    "HIGH": "red",
+    "MED": "yellow",
+    "LOW": "green"
+}
+
+m = folium.Map(location=[51.5074, -0.1278], zoom_start=11)
+
+# Only plot today's stations
+for _, row in df_today.iterrows():
+    category = row["category"]
+    color = cat_colors.get(category, "grey")
+
+    folium.CircleMarker(
+        location=[row["Latitude"], row["Longitude"]],
+        radius=6,
+        color=color,
+        fill=True,
+        fill_color=color,
+        fill_opacity=0.9,
+        popup=f"{row['station']} ({category})"
+    ).add_to(m)
+
+m.save("map.html")
 
 
 # Prediction button
@@ -145,7 +195,6 @@ if should_show_prediction:
                         f"{prediction_result['level']:.1f}%",
                         delta=f"{prediction_result['delta']:.1f}%"
                     )
-                
 
                 
                 # Risk Alert Box
@@ -165,44 +214,100 @@ if should_show_prediction:
                 forecast_data = get_forecast_for_station(display_station)
                 
                 if forecast_data:
+
                     forecast_df = pd.DataFrame(forecast_data)
                     forecast_df['date'] = pd.to_datetime(forecast_df['date'])
-                    
-                    # Create figure with better styling
-                    fig, ax = plt.subplots(figsize=(12, 6))
-                    
-                    # Plot lines for each metric
-                    ax.plot(forecast_df['date'], forecast_df['predicted_overcrowding'], 
-                           marker='o', linewidth=2.5, markersize=8, label='Predicted', 
-                           color='#1f77b4', zorder=3)
-                    ax.plot(forecast_df['date'], forecast_df['baseline_overcrowding'], 
-                           marker='s', linewidth=2, markersize=6, label='Baseline',
-                           color='#ff7f0e', linestyle='--', zorder=2)
-                    
-                    # Highlight today's prediction
-                    today_idx = forecast_df['date'].dt.date == display_date
-                    if today_idx.any():
-                        ax.scatter(forecast_df[today_idx]['date'], 
-                                  forecast_df[today_idx]['predicted_overcrowding'],
-                                  s=200, color='#d62728', zorder=4, edgecolors='black', linewidths=2)
-                    
-                    # Styling
-                    ax.set_xlabel('Date', fontsize=12, fontweight='bold')
-                    ax.set_ylabel('Overcrowding Level (%)', fontsize=12, fontweight='bold')
-                    ax.set_title(f"7-Day Congestion Forecast - {display_station}", 
-                               fontsize=14, fontweight='bold')
-                    ax.grid(True, alpha=0.3, linestyle='--')
-                    ax.set_ylim(0, 130)
-                    ax.legend(loc='upper left', fontsize=10)
-                    
-                    # Format x-axis to show dates nicely
-                    import matplotlib.dates as mdates
-                    ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
-                    ax.xaxis.set_major_locator(mdates.DayLocator())
-                    plt.xticks(rotation=45, ha='right')
-                    
-                    plt.tight_layout()
-                    st.pyplot(fig)
+
+                    # Create Plotly figure
+                    fig = go.Figure()
+
+                    # Add predicted line with gradient area
+                    fig.add_trace(go.Scatter(
+                        x=forecast_df['date'],
+                        y=forecast_df['predicted_overcrowding'],
+                        mode='lines+markers',
+                        name='Predicted',
+                        line=dict(color='#2E86DE', width=3),
+                        marker=dict(size=10, symbol='circle', line=dict(color='white', width=2)),
+                        fill='tozeroy',
+                        fillcolor='rgba(46, 134, 222, 0.1)',
+                        hovertemplate='<b>Predicted</b><br>%{y:.1f}%<br>%{x|%b %d}<extra></extra>'
+                    ))
+
+                    # Add baseline line
+                    fig.add_trace(go.Scatter(
+                        x=forecast_df['date'],
+                        y=forecast_df['baseline_overcrowding'],
+                        mode='lines+markers',
+                        name='Baseline',
+                        line=dict(color='#FF6B6B', width=2.5, dash='dash'),
+                        marker=dict(size=8, symbol='square'),
+                        hovertemplate='<b>Baseline</b><br>%{y:.1f}%<br>%{x|%b %d}<extra></extra>'
+                    ))
+
+                    # Highlight today's prediction with a larger marker
+                    today_data = forecast_df[forecast_df['date'].dt.date == display_date]
+                    if not today_data.empty:
+                        fig.add_trace(go.Scatter(
+                            x=today_data['date'],
+                            y=today_data['predicted_overcrowding'],
+                            mode='markers',
+                            name='Today',
+                            marker=dict(
+                                size=18,
+                                color='#FFA502',
+                                line=dict(color='#2C3E50', width=3),
+                                symbol='star'
+                            ),
+                            hovertemplate='<b>TODAY</b><br>%{y:.1f}%<extra></extra>'
+                        ))
+
+                    # Update layout with modern styling
+                    fig.update_layout(
+                        title={
+                            'text': f"<b>7-Day Congestion Forecast</b><br><sup>{display_station}</sup>",
+                            'x': 0.5,
+                            'xanchor': 'center',
+                            'font': {'size': 24, 'color': '#2C3E50'}
+                        },
+                        xaxis=dict(
+                            title='<b>Date</b>',
+                            showgrid=True,
+                            gridcolor='rgba(0,0,0,0.05)',
+                            tickformat='%b %d',
+                            tickfont=dict(size=12)
+                        ),
+                        yaxis=dict(
+                            title='<b>Overcrowding Level (%)</b>',
+                            showgrid=True,
+                            gridcolor='rgba(0,0,0,0.05)',
+                            range=[0, 130],
+                            tickfont=dict(size=12)
+                        ),
+                        plot_bgcolor='white',
+                        paper_bgcolor='white',
+                        hovermode='x unified',
+                        hoverlabel=dict(
+                            bgcolor="black",
+                            font_size=13,
+                            font_family="Arial"
+                        ),
+                        legend=dict(
+                            orientation="h",
+                            yanchor="bottom",
+                            y=1.02,
+                            xanchor="right",
+                            x=1,
+                            bgcolor="rgba(255,255,255,0.8)",
+                            bordercolor="#E0E0E0",
+                            borderwidth=1
+                        ),
+                        height=550,
+                        margin=dict(t=100, b=60, l=60, r=40)
+                    )
+
+                    # Display in Streamlit
+                    st.plotly_chart(fig, use_container_width=True)
                     
                     # Forecast details (opened via button modal)
                     display_df = forecast_df[[
@@ -280,3 +385,48 @@ if not should_show_prediction and not st.session_state.get('show_details'):
     - **Detailed Breakdown**: Understand why congestion is expected (weather, events, etc.)
     - **Comparison**: See how predictions compare to baseline levels
     """)
+
+    # Convert color names to RGB
+    color_map = {
+        "red": [255, 0, 0],
+        "blue": [0, 0, 255],
+        "green": [0, 255, 0],
+        "yellow": [255, 255, 0],
+        "orange": [255, 165, 0],
+        "purple": [128, 0, 128],
+        "grey": [128, 128, 128],
+        # Add your other colors here
+    }
+
+    # Apply colors to dataframe
+    df_today['color'] = df_today['category'].apply(
+        lambda cat: color_map.get(cat_colors.get(cat, "grey"), [128, 128, 128])
+    )
+
+    # Create the layer
+    layer = pdk.Layer(
+        'ScatterplotLayer',
+        data=df_today,
+        get_position='[Longitude, Latitude]',
+        get_color='color',
+        get_radius=200,  # Adjust size as needed
+        pickable=True,
+        auto_highlight=True,
+    )
+
+    # Set viewport
+    view_state = pdk.ViewState(
+        latitude=df_today['Latitude'].mean(),
+        longitude=df_today['Longitude'].mean(),
+        zoom=11,
+        pitch=0,
+    )
+
+    # Render with tooltip
+    st.pydeck_chart(pdk.Deck(
+        layers=[layer],
+        initial_view_state=view_state,
+        map_style='https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+        tooltip={"text": "{station}\n{category}"}
+    ))
+
