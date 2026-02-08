@@ -35,10 +35,10 @@ min_date, max_date = load_date_range()
 
 # Sidebar controls
 # ---------------------------
-if st.sidebar.button("🏠 Home", key='sidebar_home', on_click=_go_home):
+if st.sidebar.button("Home", key='sidebar_home', on_click=_go_home):
     pass  # callback handles the reset
 
-st.sidebar.header("🔍 Prediction Settings")
+st.sidebar.header("Prediction Settings")
 
 # Text input for autocomplete-style search
 station_query = st.sidebar.text_input(
@@ -132,13 +132,13 @@ m.save("map.html")
 
 
 # Prediction button
-predict_button = st.sidebar.button("🔮 Predict Congestion", use_container_width=True)
+predict_button = st.sidebar.button("Predict Congestion", use_container_width=True)
 
 # ---------------------------
 # Main content area
 # ---------------------------
 # st.set_page_config(layout="wide")
-st.title("🚇 Station Congestion Predictor")
+st.title("Station Congestion Predictor")
 
 # Check if we should show prediction: either predict_button was clicked, or we have stored prediction state
 should_show_prediction = predict_button or ('prediction_station' in st.session_state and 'prediction_date' in st.session_state)
@@ -156,12 +156,12 @@ else:
 
 if should_show_prediction:
     if predict_button and not station:
-        st.error("❌ Please select a station first")
+        st.error("Please select a station first")
     else:
-        st.subheader(f"📍 {display_station}")
-        st.info(f"📅 {display_date.strftime('%A, %B %d, %Y')}")
+        st.subheader(f"{display_station}")
+        st.info(f"{display_date.strftime('%A, %B %d, %Y')}")
         
-        with st.spinner("🔄 Predicting congestion..."):
+        with st.spinner("Predicting congestion..."):
             prediction_result = get_prediction(display_station, display_date)
             
             if 'error' in prediction_result:
@@ -210,7 +210,7 @@ if should_show_prediction:
                 """, unsafe_allow_html=True)
                 
                 # 7-Day Forecast Graph
-                st.subheader("📊 7-Day Forecast")
+                st.subheader("7-Day Forecast")
                 forecast_data = get_forecast_for_station(display_station)
                 
                 if forecast_data:
@@ -325,7 +325,7 @@ if should_show_prediction:
                         lambda x: f"{risk_emoji_map.get(x, '⚪')} {x}"
                     )
 
-                    st.subheader("📈 Detailed Forecast")
+                    st.subheader("Detailed Forecast")
                     # Toggle button to show/hide detailed table
                     if st.button(
                         "🔎 Show Detailed Forecast" if not st.session_state.get('show_forecast_details') else "▼ Hide Detailed Forecast",
@@ -338,7 +338,7 @@ if should_show_prediction:
                         st.dataframe(display_df, use_container_width=True, hide_index=True)
                     
                     # Summary statistics
-                    st.subheader("📊 Summary Statistics")
+                    st.subheader("Summary Statistics")
                     col1, col2, col3, col4 = st.columns(4)
                     
                     with col1:
@@ -370,16 +370,16 @@ if should_show_prediction:
 
 if not should_show_prediction and not st.session_state.get('show_details'):
     # Initial state - show instructions only when NOT predicting and NOT viewing details
-    st.info("👈 Use the sidebar to select a station and date, then click 'Predict Congestion'")
+    st.info("Use the sidebar to select a station and date, then click 'Predict Congestion'")
     
     st.markdown("""
-    ### 📖 How to use:
-    1. **🔍 Search** for your station using the search box
-    2. **📍 Select** the station from the dropdown
-    3. **📅 Choose** a date (between today and 7 days in the future)
-    4. Click **🔮 Predict Congestion** to see the forecast
+    ### How to use:
+    1. **Search** for your station using the search box
+    2. **Select** the station from the dropdown
+    3. **Choose** a date (between today and 7 days in the future)
+    4. Click **Predict Congestion** to see the forecast
     
-    ### ✨ Features:
+    ### Features:
     - **Real-time Risk Assessment**: See if a station is LOW, MEDIUM, or HIGH congestion risk
     - **7-Day Forecast**: View congestion patterns across the week
     - **Detailed Breakdown**: Understand why congestion is expected (weather, events, etc.)
