@@ -1,5 +1,13 @@
+<<<<<<< HEAD
 .ipynb_checkpoints/
 .venv/
 __pycache__/
 *.pyc
 .DS_Store
+=======
+venv/
+__pycache__/
+*.joblib
+.env
+.DS_Store
+>>>>>>> e167ca51469dbf410a6ef01777ca23999c01a176
